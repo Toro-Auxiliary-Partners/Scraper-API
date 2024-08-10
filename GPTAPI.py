@@ -7,6 +7,7 @@ from WebScraper import WebScraper
 
 app = Flask(__name__)
 scraper = WebScraper()
+assist = WebScraper(setOptions=False)
 
 @app.route('/')
 def root():
@@ -17,10 +18,14 @@ def getJobInfo():
     if not scraper.hasScraped():
         scraper.scrape()
 
-    with open('C:/wamp64/www/MyVersGPT/jobs.json', 'r') as file:
+    with open('C:/wamp64/www/ChatbotAPI/jobs.json', 'r') as file:
         jobs = json.load(file)
     return jsonify(jobs)
 
+@app.route('/courseTransfers', methods=['GET'])
+def testAssist():
+    assist.searchAssist("El Camino College")
+    return "in testAssist"
 
 application = app
 if __name__ == '__main__':

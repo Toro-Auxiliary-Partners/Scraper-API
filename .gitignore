@@ -3,5 +3,7 @@ __pycache__/
 #ignore all text files
 *.txt
 
+#ignore all json files
+*.json
 #ignore test file
 WebScraperTest.py
