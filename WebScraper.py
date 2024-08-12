@@ -1,3 +1,4 @@
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
@@ -17,7 +18,7 @@ class WebScraper:
         chrome = ChromeDriverManager(driver_version="127.0.6533.89")
         self.service = Service(chrome.install())
 
-        #Server doesn't have a display so we don't need to see an open instance of chrome
+        #Server doesn't have a display so we don't need to see an open instance of chrome unless we need it for testing purposes
         self.options = Options()
         if setOptions:
             self.options.add_argument('--no-sandbox')
@@ -89,7 +90,30 @@ class WebScraper:
             EC.presence_of_element_located((By.CLASS_NAME, "template"))
         )
 
-        time.sleep(10)
+        #Get all the cc classes and their corresponding DH course
+        divs = section.find_elements(By.XPATH, './div')
+        for div in divs:
+            try:
+                classContainer = div.find_element(By.TAG_NAME, 'awc-template-requirement-group')
+                classPair = classContainer.find_element(By.CLASS_NAME, 'rowContent').find_elements(By.XPATH, './div')
+
+                #get class info and write to json
+                for pair in classPair:
+                    #get info from csudh class
+                    DHCourse = pair.find_element(By.CLASS_NAME, 'rowReceiving')
+                    DHCourseNum = DHCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
+                    DHCourseName = DHCourse.find_element(By.CLASS_NAME, 'courseTitle').text
+                    DHCourseUnits = DHCourse.find_element(By.CLASS_NAME, 'courseUnits').text
+
+                    #get info from CC class
+                    ccCourse = pair.find_element(By.CLASS_NAME, 'rowSending')
+                    ccCourseNum = ccCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
+                    ccCourseName = ccCourse.find_element(By.CLASS_NAME, 'courseTitle').text
+                    ccCourseUnits = ccCourse.find_element(By.CLASS_NAME, 'courseUnits').text
+
+                    print(f"{DHCourseNum} {DHCourseName} {DHCourseUnits} units <- {ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
+            except NoSuchElementException:
+                continue
 
     def hasScraped(self) -> bool:
         return self.jobScraped
