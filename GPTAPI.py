@@ -16,7 +16,7 @@ def root():
 @app.route('/getJobInfo', methods = ['GET'])
 def getJobInfo():
     if not scraper.hasScraped():
-        scraper.scrape()
+        scraper.scrapeJobs()
 
     with open('C:/wamp64/www/ChatbotAPI/jobs.json', 'r') as file:
         jobs = json.load(file)
@@ -24,7 +24,7 @@ def getJobInfo():
 
 @app.route('/courseTransfers', methods=['GET'])
 def testAssist():
-    assist.searchAssist("El Camino College")
+    assist.scrapeAssist()
     return "in testAssist"
 
 application = app

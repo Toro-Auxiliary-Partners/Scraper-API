@@ -28,7 +28,7 @@ class WebScraper:
         #Class attributes
         self.jobScraped = False
 
-    def scrape(self) -> None:
+    def scrapeJobs(self) -> None:
         jobDriver = webdriver.Chrome(service=self.service, options=self.options)
         root = "https://www.governmentjobs.com"
         pgNum = 1
@@ -68,7 +68,7 @@ class WebScraper:
         with open('C:\wamp64\www\ChatbotAPI\jobs.json', 'w') as file:
              json.dump(jobs, file, indent=4)
 
-    def searchAssist(self) -> None:
+    def scrapeAssist(self) -> None:
         assistDriver = webdriver.Chrome(service=self.service, options=self.options)
         url = "https://assist.org"
         assistDriver.get(url)
