@@ -107,53 +107,58 @@ class WebScraper:
         )
         viewTranferCourseBtn.click()
         
-        self.getTransferData(assistDriver, 'computer science')
+        self.getTransferData(assistDriver)
 
-    def getTransferData(self, assistDriver, dep) -> None:
+    def getTransferData(self, assistDriver) -> None:
         #giving the website 5 seconds to load before attempting to read from it
         time.sleep(5)
 
-        #Wait for the search bar to load in before attempting to type in it
-        search = WebDriverWait(assistDriver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "ng-valid"))
-        )
-        search.send_keys(dep)
+        with open('C:\wamp64\www\ChatbotAPI\majors.txt', 'r') as majors:
+            for major in majors:
+                #Wait for the search bar to load in before attempting to type in it
+                search = WebDriverWait(assistDriver, 10).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "ng-valid"))
+                )
+                search.send_keys(major)
 
-        #wait for department options to load before trying to click on it
-        department = WebDriverWait(assistDriver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "viewByRowColText"))
-        )
-        department.click()
+                #wait for department options to load before trying to click on it
+                department = WebDriverWait(assistDriver, 10).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "viewByRowColText"))
+                )
+                print(department.text)
+                department.click()
 
-        #wait for the sections tag to load before trying to read from it
-        section = WebDriverWait(assistDriver, 15).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "template"))
-        )
-        
-        #Get all the cc classes and their corresponding DH course
-        divs = section.find_elements(By.XPATH, './div')
-        for div in divs:
-            try:
-                classContainer = div.find_element(By.TAG_NAME, 'awc-template-requirement-group')
-                classPair = classContainer.find_element(By.CLASS_NAME, 'rowContent').find_elements(By.XPATH, './div')
+                #wait for the sections tag to load before trying to read from it
+                section = WebDriverWait(assistDriver, 15).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "template"))
+                )
+                
+                #Get all the cc classes and their corresponding DH course
+                divs = section.find_elements(By.XPATH, './div')
+                for div in divs:
+                    try:
+                        classContainer = div.find_element(By.TAG_NAME, 'awc-template-requirement-group')
+                        classPair = classContainer.find_element(By.CLASS_NAME, 'rowContent').find_elements(By.XPATH, './div')
 
-                #get class info and write to json
-                for pair in classPair:
-                    #get info from csudh class
-                    DHCourse = pair.find_element(By.CLASS_NAME, 'rowReceiving')
-                    DHCourseNum = DHCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
-                    DHCourseName = DHCourse.find_element(By.CLASS_NAME, 'courseTitle').text
-                    DHCourseUnits = DHCourse.find_element(By.CLASS_NAME, 'courseUnits').text
+                        #get class info and write to json
+                        for pair in classPair:
+                            #get info from csudh class
+                            DHCourse = pair.find_element(By.CLASS_NAME, 'rowReceiving')
+                            DHCourseNum = DHCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
+                            DHCourseName = DHCourse.find_element(By.CLASS_NAME, 'courseTitle').text
+                            DHCourseUnits = DHCourse.find_element(By.CLASS_NAME, 'courseUnits').text
 
-                    #get info from CC class
-                    ccCourse = pair.find_element(By.CLASS_NAME, 'rowSending')
-                    ccCourseNum = ccCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
-                    ccCourseName = ccCourse.find_element(By.CLASS_NAME, 'courseTitle').text
-                    ccCourseUnits = ccCourse.find_element(By.CLASS_NAME, 'courseUnits').text
+                            #get info from CC class
+                            ccCourse = pair.find_element(By.CLASS_NAME, 'rowSending')
+                            ccCourseNum = ccCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
+                            ccCourseName = ccCourse.find_element(By.CLASS_NAME, 'courseTitle').text
+                            ccCourseUnits = ccCourse.find_element(By.CLASS_NAME, 'courseUnits').text
 
-                    print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- (cerritos college){ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
-            except NoSuchElementException:
-                continue
+                            print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- (cerritos college){ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
+                    except NoSuchElementException:
+                        continue
+
+                search.clear()
 
     def hasScraped(self) -> bool:
         return self.jobScraped
