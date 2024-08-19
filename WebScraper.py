@@ -73,45 +73,52 @@ class WebScraper:
         url = "https://assist.org"
         assistDriver.get(url)
 
-        #wait for the search bar to load before entering 'CSUDH' into the search bar
-        WebDriverWait(assistDriver, 10).until(
-            EC.presence_of_element_located((By.ID, "governing-institution-select"))
-        ).send_keys('CSUDH')
+        with open('C:\wamp64\www\ChatbotAPI\schools.txt', 'r') as schools:
+            for school in schools:
+                #wait for the search bar to load before entering 'CSUDH' into the search bar
+                WebDriverWait(assistDriver, 10).until(
+                    EC.presence_of_element_located((By.ID, "governing-institution-select"))
+                ).send_keys('CSUDH')
 
-        #wait for the CSUDH option to load from the dropdown menu before clicking on it
-        WebDriverWait(assistDriver, 10).until(
-            EC.presence_of_element_located((By.ID, 'option-202'))
-        ).click()
+                #wait for the CSUDH option to load from the dropdown menu before clicking on it
+                WebDriverWait(assistDriver, 10).until(
+                    EC.presence_of_element_located((By.ID, 'option-202'))
+                ).click()
 
-        #wait for the search bar to load before entering a CC institution
-        ccSearchBar = WebDriverWait(assistDriver, 10).until(
-            EC.element_to_be_clickable((By.NAME, 'institution-agreement'))
-        )
+                #wait for the search bar to load before entering a CC institution
+                ccSearchBar = WebDriverWait(assistDriver, 10).until(
+                    EC.element_to_be_clickable((By.NAME, 'institution-agreement'))
+                )
 
-        #type the school we want tranfer class data from and then click on the 1st option from the drop down menu
-        ccSearchBar.send_keys('Cerritos College')
-        schoolList = WebDriverWait(assistDriver, 10).until(
-            EC.presence_of_element_located((By.ID, 'cdk-overlay-1'))
-        )
-        school = schoolList.find_element(By.TAG_NAME, 'amc-option')
-        school.click()
+                #type the school we want tranfer class data from and then click on the 1st option from the drop down menu
+                ccSearchBar.send_keys(school)
+                schoolList = WebDriverWait(assistDriver, 10).until(
+                    EC.presence_of_element_located((By.ID, 'cdk-overlay-1'))
+                )
+                school = schoolList.find_element(By.TAG_NAME, 'amc-option')
+                school.click()
 
-        #wait for the button to view tranfer data to be visible and clickable
-        viewTranferCourseBtn = WebDriverWait(assistDriver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, 'btn-primary'))
-        )
-        assistDriver.execute_script("arguments[0].scrollIntoView(true);", viewTranferCourseBtn)
-        time.sleep(2)
-        WebDriverWait(assistDriver, 10).until(
-            EC.element_to_be_clickable(viewTranferCourseBtn)
-        )
-        viewTranferCourseBtn.click()
-        
-        self.getTransferData(assistDriver)
+                #wait for the button to view tranfer data to be visible and clickable
+                viewTranferCourseBtn = WebDriverWait(assistDriver, 10).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, 'btn-primary'))
+                )
+                assistDriver.execute_script("arguments[0].scrollIntoView(true);", viewTranferCourseBtn)
+                time.sleep(2)
+                WebDriverWait(assistDriver, 10).until(
+                    EC.element_to_be_clickable(viewTranferCourseBtn)
+                )
+                viewTranferCourseBtn.click()
+                
+                self.getTransferData(assistDriver)
 
     def getTransferData(self, assistDriver) -> None:
         #giving the website 5 seconds to load before attempting to read from it
-        time.sleep(5)
+        time.sleep(3)
+
+        header = WebDriverWait(assistDriver, 10).until(
+            EC.presence_of_element_located((By.ID, 'view-agreement-by'))
+        )
+        ccName = header.find_elements(By.XPATH, './div')[2].text[5:]
 
         with open('C:\wamp64\www\ChatbotAPI\majors.txt', 'r') as majors:
             for major in majors:
@@ -154,11 +161,17 @@ class WebScraper:
                             ccCourseName = ccCourse.find_element(By.CLASS_NAME, 'courseTitle').text
                             ccCourseUnits = ccCourse.find_element(By.CLASS_NAME, 'courseUnits').text
 
-                            print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- (cerritos college){ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
+                            print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName}){ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
                     except NoSuchElementException:
                         continue
 
                 search.clear()
+
+        assistLogo = WebDriverWait(assistDriver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, 'a'))
+        )
+        assistLogo.click()
+        time.sleep(1)
 
     def hasScraped(self) -> bool:
         return self.jobScraped
