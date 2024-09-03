@@ -72,8 +72,9 @@ class WebScraper:
         assistDriver = webdriver.Chrome(service=self.service, options=self.options)
         url = "https://assist.org"
         assistDriver.get(url)
+        transferData = {}
 
-        with open('C:\wamp64\www\ChatbotAPI\schools.txt', 'r') as schools:
+        with open('C:\\wamp64\\www\\ChatbotAPI\\schools.txt', 'r') as schools:
             for school in schools:
                 #wait for the search bar to load before entering 'CSUDH' into the search bar
                 WebDriverWait(assistDriver, 10).until(
@@ -96,6 +97,8 @@ class WebScraper:
                     EC.presence_of_element_located((By.ID, 'cdk-overlay-1'))
                 )
                 school = schoolList.find_element(By.TAG_NAME, 'amc-option')
+                schoolName = school.text[6:]
+                transferData[schoolName] = []
                 school.click()
 
                 #wait for the button to view tranfer data to be visible and clickable
@@ -109,9 +112,12 @@ class WebScraper:
                 )
                 viewTranferCourseBtn.click()
                 
-                self.getTransferData(assistDriver)
+                self.getTransferData(assistDriver, transferData[schoolName])
 
-    def getTransferData(self, assistDriver) -> None:
+        with open('C:\\wamp64\\www\\ChatbotAPI\\transferdata.json', 'w') as json_file:
+            json.dump(transferData, json_file, indent=4)
+
+    def getTransferData(self, assistDriver, transferData) -> None:
         #giving the website 5 seconds to load before attempting to read from it
         time.sleep(3)
 
@@ -120,20 +126,25 @@ class WebScraper:
         )
         ccName = header.find_elements(By.XPATH, './div')[2].text[5:]
 
-        with open('C:\wamp64\www\ChatbotAPI\majors.txt', 'r') as majors:
+        with open('C:\\wamp64\\www\\ChatbotAPI\\majors.txt', 'r') as majors:
             for major in majors:
-                #Wait for the search bar to load in before attempting to type in it
-                search = WebDriverWait(assistDriver, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "ng-valid"))
-                )
-                search.send_keys(major)
+                try:
+                    #Wait for the search bar to load in before attempting to type in it
+                    search = WebDriverWait(assistDriver, 10).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, "ng-valid"))
+                    )
+                    search.send_keys(major)
 
-                #wait for department options to load before trying to click on it
-                department = WebDriverWait(assistDriver, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "viewByRowColText"))
-                )
-                print(department.text)
-                department.click()
+                    #wait for department options to load before trying to click on it
+                    department = WebDriverWait(assistDriver, 10).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, "viewByRowColText"))
+                    )
+                    print(department.text)
+                    department.click()
+                except Exception as e:
+                    #if department doesn't exist, exit the funciton
+                    search.clear()
+                    continue
 
                 #wait for the sections tag to load before trying to read from it
                 section = WebDriverWait(assistDriver, 15).until(
@@ -161,6 +172,19 @@ class WebScraper:
                             ccCourseName = ccCourse.find_element(By.CLASS_NAME, 'courseTitle').text
                             ccCourseUnits = ccCourse.find_element(By.CLASS_NAME, 'courseUnits').text
 
+                            transferData.append({
+                                'cc_course': {
+                                    'number': ccCourseNum,
+                                    'name': ccCourseName,
+                                    'units': ccCourseUnits
+                                },
+                                'dh_course': {
+                                    'number': DHCourseNum,
+                                    'name': DHCourseName,
+                                    'units': DHCourseUnits
+                                }
+                            })
+
                             print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName}){ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
                     except NoSuchElementException:
                         continue
@@ -172,6 +196,12 @@ class WebScraper:
         )
         assistLogo.click()
         time.sleep(1)
+
+    def handleNoClass():
+        pass
+
+    def handleMultiplePaths():
+        pass
 
     def hasScraped(self) -> bool:
         return self.jobScraped
