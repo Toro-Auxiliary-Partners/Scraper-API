@@ -12,7 +12,6 @@ import json
 import time
 
 class WebScraper:
-
     def __init__(self, setOptions = True):
         # Create an instance of ChromeDriverManager(CDM) to install CDM if it is not detected
         chrome = ChromeDriverManager(driver_version="127.0.6533.89")
@@ -168,24 +167,36 @@ class WebScraper:
 
                             #get info from CC class
                             ccCourse = pair.find_element(By.CLASS_NAME, 'rowSending')
-                            ccCourseNum = ccCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
-                            ccCourseName = ccCourse.find_element(By.CLASS_NAME, 'courseTitle').text
-                            ccCourseUnits = ccCourse.find_element(By.CLASS_NAME, 'courseUnits').text
+                            if ccCourse.text == "No Course Articulated":
+                                transferData.append({
+                                    'cc_course': {
+                                        'number': ccCourseNum,
+                                        'name': ccCourseName,
+                                        'units': ccCourseUnits
+                                    },
+                                    'dh_course': {
+                                        'comment' : "No Course Articulated"
+                                    }
+                                })
+                                print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName})No Course Articulated\n")
+                            else:
+                                ccCourseNum = ccCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
+                                ccCourseName = ccCourse.find_element(By.CLASS_NAME, 'courseTitle').text
+                                ccCourseUnits = ccCourse.find_element(By.CLASS_NAME, 'courseUnits').text
 
-                            transferData.append({
-                                'cc_course': {
-                                    'number': ccCourseNum,
-                                    'name': ccCourseName,
-                                    'units': ccCourseUnits
-                                },
-                                'dh_course': {
-                                    'number': DHCourseNum,
-                                    'name': DHCourseName,
-                                    'units': DHCourseUnits
-                                }
-                            })
-
-                            print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName}){ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
+                                transferData.append({
+                                    'cc_course': {
+                                        'number': ccCourseNum,
+                                        'name': ccCourseName,
+                                        'units': ccCourseUnits
+                                    },
+                                    'dh_course': {
+                                        'number': DHCourseNum,
+                                        'name': DHCourseName,
+                                        'units': DHCourseUnits
+                                    }
+                                })
+                                print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName}){ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
                     except NoSuchElementException:
                         continue
 
