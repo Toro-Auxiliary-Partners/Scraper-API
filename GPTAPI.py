@@ -4,7 +4,6 @@ import os
 sys.path.append(os.path.dirname(__file__))
 from WebScraper import WebScraper
 
-
 app = Flask(__name__)
 scraper = WebScraper()
 assist = WebScraper(setOptions=False)

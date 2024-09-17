@@ -111,12 +111,12 @@ class WebScraper:
                 )
                 viewTranferCourseBtn.click()
                 
-                self.getTransferData(assistDriver, transferData[schoolName])
+                self.jsonifyTransferData(assistDriver, transferData[schoolName])
 
         with open('C:\\wamp64\\www\\ChatbotAPI\\transferdata.json', 'w') as json_file:
             json.dump(transferData, json_file, indent=4)
 
-    def getTransferData(self, assistDriver, transferData) -> None:
+    def jsonifyTransferData(self, assistDriver, transferData) -> None:
         #giving the website 5 seconds to load before attempting to read from it
         time.sleep(3)
 
@@ -141,7 +141,7 @@ class WebScraper:
                     print(department.text)
                     department.click()
                 except Exception as e:
-                    #if department doesn't exist, exit the funciton
+                    #if department doesn't exist, clear the search bar to input the next department
                     search.clear()
                     continue
 
@@ -161,42 +161,15 @@ class WebScraper:
                         for pair in classPair:
                             #get info from csudh class
                             DHCourse = pair.find_element(By.CLASS_NAME, 'rowReceiving')
-                            DHCourseNum = DHCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
-                            DHCourseName = DHCourse.find_element(By.CLASS_NAME, 'courseTitle').text
-                            DHCourseUnits = DHCourse.find_element(By.CLASS_NAME, 'courseUnits').text
-
-                            #get info from CC class
                             ccCourse = pair.find_element(By.CLASS_NAME, 'rowSending')
-                            if ccCourse.text == "No Course Articulated":
-                                transferData.append({
-                                    'cc_course': {
-                                        'number': ccCourseNum,
-                                        'name': ccCourseName,
-                                        'units': ccCourseUnits
-                                    },
-                                    'dh_course': {
-                                        'comment' : "No Course Articulated"
-                                    }
-                                })
-                                print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName})No Course Articulated\n")
+                            
+                            if self.containsChildByClass(DHCourse, 'bracketContent'):
+                                DHbracketContent = DHCourse.find_element(By.CLASS_NAME, 'bracketContent')
+                                CCbracketContent = ccCourse.find_element(By.CLASS_NAME, 'bracketContent')
+                                self.handleMultiplePaths(DHbracketContent, CCbracketContent, transferData)
                             else:
-                                ccCourseNum = ccCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
-                                ccCourseName = ccCourse.find_element(By.CLASS_NAME, 'courseTitle').text
-                                ccCourseUnits = ccCourse.find_element(By.CLASS_NAME, 'courseUnits').text
+                                self.extractTransferData(DHCourse, ccName, ccCourse, transferData)
 
-                                transferData.append({
-                                    'cc_course': {
-                                        'number': ccCourseNum,
-                                        'name': ccCourseName,
-                                        'units': ccCourseUnits
-                                    },
-                                    'dh_course': {
-                                        'number': DHCourseNum,
-                                        'name': DHCourseName,
-                                        'units': DHCourseUnits
-                                    }
-                                })
-                                print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName}){ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
                     except NoSuchElementException:
                         continue
 
@@ -208,11 +181,73 @@ class WebScraper:
         assistLogo.click()
         time.sleep(1)
 
-    def handleNoClass():
-        pass
+    def handleMultiplePaths(self, DHbracket, CCbracket, transferData):
+        DHcourses = DHbracket.find_elements(By.CLASS_NAME, 'courseLine')
+        CCcourse = CCbracket.find_elements(By.CLASS_NAME, 'courseLine')
+        DHStringBuilder = []
+        CCStringBuilder = []
 
-    def handleMultiplePaths():
-        pass
+        for course in DHcourses:
+            DHStringBuilder.append(course.find_element(By.CLASS_NAME, 'prefixCourseNumber').text)
+            DHStringBuilder.append(course.find_element(By.CLASS_NAME, 'courseTitle').text)
+            DHStringBuilder.append(course.find_element(By.CLASS_NAME, 'courseUnits').text)
+            DHStringBuilder.append('and')
+
+        for course in CCcourse:
+            CCStringBuilder.append(course.find_element(By.CLASS_NAME, 'prefixCourseNumber').text)
+            CCStringBuilder.append(course.find_element(By.CLASS_NAME, 'courseTitle').text)
+            CCStringBuilder.append(course.find_element(By.CLASS_NAME, 'courseUnits').text)
+            CCStringBuilder.append('and')
+
+        DHStringBuilder.pop()
+        CCStringBuilder.pop()
+
+        transferData.append({
+                'cc_course': {
+                    'multipleCourses': ' '.join(CCStringBuilder)
+                },
+                'dh_course': {
+                    'multipleCourses': ' '.join(DHStringBuilder)
+                }
+            })
+
+    def extractTransferData(self, DHCourse, ccName, ccCourse, transferData):
+        DHCourseNum = DHCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
+        DHCourseName = DHCourse.find_element(By.CLASS_NAME, 'courseTitle').text
+        DHCourseUnits = DHCourse.find_element(By.CLASS_NAME, 'courseUnits').text
+                            
+        #if a community college doesn't have a class that transfers to the necessary class at DH, then add that to the  json
+        if ccCourse.text == "No Course Articulated":
+            transferData.append({
+                'cc_course': {
+                    'comment': 'No Course Articulated'
+                },
+                'dh_course': {
+                    'number': DHCourseNum,
+                    'name': DHCourseName,
+                    'units': DHCourseUnits
+                }
+            })
+            print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName})No Course Articulated\n")
+        #otherwise, add the corresponding class to the json
+        else:
+            ccCourseNum = ccCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
+            ccCourseName = ccCourse.find_element(By.CLASS_NAME, 'courseTitle').text
+            ccCourseUnits = ccCourse.find_element(By.CLASS_NAME, 'courseUnits').text
+
+            transferData.append({
+                'cc_course': {
+                    'number': ccCourseNum,
+                    'name': ccCourseName,
+                    'units': ccCourseUnits
+                },
+                'dh_course': {
+                    'number': DHCourseNum,
+                    'name': DHCourseName,
+                    'units': DHCourseUnits
+                }
+            })
+            print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName}){ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
 
     def hasScraped(self) -> bool:
         return self.jobScraped
@@ -226,3 +261,11 @@ class WebScraper:
         salHtml = tags[1].text
         i = salHtml.find('$')
         return salHtml[i:salHtml.find('n') - 2]
+    
+    def containsChildByClass(self, parent, child):
+        try:
+            parent.find_element(By.CLASS_NAME, child)
+        except NoSuchElementException:
+            return False
+        
+        return True
