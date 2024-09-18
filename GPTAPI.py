@@ -14,17 +14,21 @@ def root():
 
 @app.route('/getJobInfo', methods = ['GET'])
 def getJobInfo():
-    if not scraper.hasScraped():
+    if not scraper.hasScrapedJobs():
         scraper.scrapeJobs()
 
-    with open('C:/wamp64/www/ChatbotAPI/jobs.json', 'r') as file:
+    with open('C:\\wamp64\\www\\ChatbotAPI\\jobs.json', 'r') as file:
         jobs = json.load(file)
     return jsonify(jobs)
 
 @app.route('/courseTransfers', methods=['GET'])
 def testAssist():
-    assist.scrapeAssist()
-    return "in testAssist"
+    if not scraper.hasScrapedAssist():
+        assist.scrapeAssist()
+
+    with open('C:\\wamp64\\www\\ChatbotAPI\\transferdata.json', 'w') as file:
+        courses = json.load(file)
+        return courses
 
 application = app
 if __name__ == '__main__':
