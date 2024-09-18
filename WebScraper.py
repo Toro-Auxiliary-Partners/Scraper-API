@@ -24,6 +24,7 @@ class WebScraper:
 
         #Class attributes
         self.jobScraped = False
+        self.assistScraped = False
 
     def scrapeJobs(self) -> None:
         jobDriver = webdriver.Chrome(service=self.service, options=self.options)
@@ -31,6 +32,7 @@ class WebScraper:
         pgNum = 1
         jobs =[]
 
+        #loop through every page that has job information
         while True:
             url = root + f"/careers/lacity?page={pgNum}"
             jobDriver.get(url)
@@ -43,8 +45,10 @@ class WebScraper:
                 )
             )
 
+            #break out of the loop if the page has no jobs left
             if self.containsChildByClass(jobDriver, 'not-found-text'): break
 
+            #loop through all the job data and add their info to a json file
             for job in jobDriver.find_elements(By.CLASS_NAME, 'list-item'):
                 link = job.find_element(By.TAG_NAME, 'a').get_attribute('href')
                 jName = job.find_element(By.TAG_NAME, 'a').text
@@ -91,7 +95,7 @@ class WebScraper:
                 )
                 school = schoolList.find_element(By.TAG_NAME, 'amc-option')
                 schoolName = school.text[6:]
-                transferData[schoolName] = []
+                transferData[schoolName] = {}
                 school.click()
 
                 #wait for the button to view tranfer data to be visible and clickable
@@ -132,7 +136,7 @@ class WebScraper:
                     department = WebDriverWait(assistDriver, 10).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "viewByRowColText"))
                     )
-                    print(department.text)
+                    transferData[department.text] = []
                     department.click()
                 except Exception as e:
                     #if department doesn't exist, clear the search bar to input the next department
@@ -160,9 +164,9 @@ class WebScraper:
                             if self.containsChildByClass(DHCourse, 'bracketContent'):
                                 DHbracketContent = DHCourse.find_element(By.CLASS_NAME, 'bracketContent')
                                 CCbracketContent = ccCourse.find_element(By.CLASS_NAME, 'bracketContent')
-                                self.handleMultiplePaths(DHbracketContent, CCbracketContent, transferData)
+                                self.handleMultiplePaths(DHbracketContent, CCbracketContent, transferData[department.text])
                             else:
-                                self.extractTransferData(DHCourse, ccName, ccCourse, transferData)
+                                self.extractTransferData(DHCourse, ccName, ccCourse, transferData[department.text])
 
                     except NoSuchElementException:
                         continue
@@ -175,7 +179,7 @@ class WebScraper:
         assistLogo.click()
         time.sleep(1)
 
-    def handleMultiplePaths(self, DHbracket, CCbracket, transferData):
+    def handleMultiplePaths(self, DHbracket, CCbracket, transferData) -> None:
         DHcourses = DHbracket.find_elements(By.CLASS_NAME, 'courseLine')
         CCcourse = CCbracket.find_elements(By.CLASS_NAME, 'courseLine')
         DHStringBuilder = []
@@ -205,7 +209,7 @@ class WebScraper:
                 }
             })
 
-    def extractTransferData(self, DHCourse, ccName, ccCourse, transferData):
+    def extractTransferData(self, DHCourse, ccCourse, transferData) -> None:
         DHCourseNum = DHCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
         DHCourseName = DHCourse.find_element(By.CLASS_NAME, 'courseTitle').text
         DHCourseUnits = DHCourse.find_element(By.CLASS_NAME, 'courseUnits').text
@@ -222,7 +226,6 @@ class WebScraper:
                     'units': DHCourseUnits
                 }
             })
-            print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName})No Course Articulated\n")
         #otherwise, add the corresponding class to the json
         else:
             ccCourseNum = ccCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
@@ -241,12 +244,14 @@ class WebScraper:
                     'units': DHCourseUnits
                 }
             })
-            print(f"(CSUDH){DHCourseNum} {DHCourseName} {DHCourseUnits} units <- ({ccName}){ccCourseNum} {ccCourseName} {ccCourseUnits} units\n")
 
-    def hasScraped(self) -> bool:
+    def hasScrapedJobs(self) -> bool:
         return self.jobScraped
     
-    def containsChildByClass(self, parent, child):
+    def hasScrapedAssist(self) -> bool:
+        return self.assistScraped
+    
+    def containsChildByClass(self, parent, child) -> bool:
         try:
             parent.find_element(By.CLASS_NAME, child)
         except NoSuchElementException:
