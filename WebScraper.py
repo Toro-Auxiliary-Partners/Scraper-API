@@ -62,7 +62,7 @@ class WebScraper:
             pgNum += 1
         jobDriver.quit()
         self.jobScraped = True
-        with open('C:\wamp64\www\ChatbotAPI\jobs.json', 'w') as file:
+        with open('C:\\wamp64\\www\\ChatbotAPI\\jobs.json', 'w') as file:
              json.dump(jobs, file, indent=4)
 
     def scrapeAssist(self) -> None:
@@ -121,7 +121,6 @@ class WebScraper:
         header = WebDriverWait(assistDriver, 10).until(
             EC.presence_of_element_located((By.ID, 'view-agreement-by'))
         )
-        ccName = header.find_elements(By.XPATH, './div')[2].text[5:]
 
         with open('C:\\wamp64\\www\\ChatbotAPI\\majors.txt', 'r') as majors:
             for major in majors:
@@ -166,7 +165,7 @@ class WebScraper:
                                 CCbracketContent = ccCourse.find_element(By.CLASS_NAME, 'bracketContent')
                                 self.handleMultiplePaths(DHbracketContent, CCbracketContent, transferData[department.text])
                             else:
-                                self.extractTransferData(DHCourse, ccName, ccCourse, transferData[department.text])
+                                self.extractTransferData(DHCourse, ccCourse, transferData[department.text])
 
                     except NoSuchElementException:
                         continue

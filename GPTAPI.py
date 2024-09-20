@@ -6,7 +6,7 @@ from WebScraper import WebScraper
 
 app = Flask(__name__)
 scraper = WebScraper()
-assist = WebScraper(setOptions=False)
+assist = WebScraper()
 
 @app.route('/')
 def root():
@@ -26,9 +26,9 @@ def testAssist():
     if not scraper.hasScrapedAssist():
         assist.scrapeAssist()
 
-    with open('C:\\wamp64\\www\\ChatbotAPI\\transferdata.json', 'w') as file:
+    with open('C:\\wamp64\\www\\ChatbotAPI\\transferdata.json', 'r') as file:
         courses = json.load(file)
-        return courses
+    return courses
 
 application = app
 if __name__ == '__main__':
