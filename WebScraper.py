@@ -12,7 +12,7 @@ import time
 class WebScraper:
     def __init__(self, setOptions = True):
         # Create an instance of ChromeDriverManager(CDM) to install CDM if it is not detected
-        chrome = ChromeDriverManager(driver_version="127.0.6533.89")
+        chrome = ChromeDriverManager(driver_version="129.0.6668.71")
         self.service = Service(chrome.install())
 
         #Server doesn't have a display so we don't need to see an open instance of chrome unless we need it for testing purposes
@@ -23,8 +23,8 @@ class WebScraper:
             self.options.add_argument('--disable-dev-shm-usage')
 
         #Class attributes
-        self.jobScraped = False
-        self.assistScraped = False
+        self.jobScraped = True
+        self.assistScraped = True
 
     def scrapeJobs(self) -> None:
         jobDriver = webdriver.Chrome(service=self.service, options=self.options)
@@ -114,7 +114,7 @@ class WebScraper:
         with open('C:\\wamp64\\www\\ChatbotAPI\\transferdata.json', 'w') as json_file:
             json.dump(transferData, json_file, indent=4)
 
-    def jsonifyTransferData(self, assistDriver, transferData) -> None:
+    def jsonifyTransferData(self, assistDriver, school) -> None:
         #giving the website 5 seconds to load before attempting to read from it
         time.sleep(3)
 
@@ -135,7 +135,7 @@ class WebScraper:
                     department = WebDriverWait(assistDriver, 10).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "viewByRowColText"))
                     )
-                    transferData[department.text] = []
+                    school[department.text] = []
                     department.click()
                 except Exception as e:
                     #if department doesn't exist, clear the search bar to input the next department
@@ -163,9 +163,9 @@ class WebScraper:
                             if self.containsChildByClass(DHCourse, 'bracketContent'):
                                 DHbracketContent = DHCourse.find_element(By.CLASS_NAME, 'bracketContent')
                                 CCbracketContent = ccCourse.find_element(By.CLASS_NAME, 'bracketContent')
-                                self.handleMultiplePaths(DHbracketContent, CCbracketContent, transferData[department.text])
+                                self.handleMultiplePaths(DHbracketContent, CCbracketContent, school[department.text])
                             else:
-                                self.extractTransferData(DHCourse, ccCourse, transferData[department.text])
+                                self.extractTransferData(DHCourse, ccCourse, school[department.text])
 
                     except NoSuchElementException:
                         continue
@@ -178,28 +178,24 @@ class WebScraper:
         assistLogo.click()
         time.sleep(1)
 
-    def handleMultiplePaths(self, DHbracket, CCbracket, transferData) -> None:
+    def handleMultiplePaths(self, DHbracket, CCbracket, major) -> None:
         DHcourses = DHbracket.find_elements(By.CLASS_NAME, 'courseLine')
         CCcourse = CCbracket.find_elements(By.CLASS_NAME, 'courseLine')
         DHStringBuilder = []
         CCStringBuilder = []
 
         for course in DHcourses:
-            DHStringBuilder.append(course.find_element(By.CLASS_NAME, 'prefixCourseNumber').text)
-            DHStringBuilder.append(course.find_element(By.CLASS_NAME, 'courseTitle').text)
-            DHStringBuilder.append(course.find_element(By.CLASS_NAME, 'courseUnits').text)
+            DHStringBuilder.append(course.text)
             DHStringBuilder.append('and')
 
         for course in CCcourse:
-            CCStringBuilder.append(course.find_element(By.CLASS_NAME, 'prefixCourseNumber').text)
-            CCStringBuilder.append(course.find_element(By.CLASS_NAME, 'courseTitle').text)
-            CCStringBuilder.append(course.find_element(By.CLASS_NAME, 'courseUnits').text)
+            CCStringBuilder.append(course.text)
             CCStringBuilder.append('and')
 
         DHStringBuilder.pop()
         CCStringBuilder.pop()
 
-        transferData.append({
+        major.append({
                 'cc_course': {
                     'multipleCourses': ' '.join(CCStringBuilder)
                 },
