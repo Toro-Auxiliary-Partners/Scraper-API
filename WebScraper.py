@@ -12,7 +12,14 @@ import time
 import os
 
 class WebScraper:
-    def __init__(self):
+    # Class variables
+    service = None
+    options = None
+    jobDriver = None
+    assistDriver = None
+
+    @classmethod
+    def initialize(cls):
         # Create an instance of ChromeDriverManager(CDM) to install CDM if it is not detected
         logging.basicConfig(level=logging.INFO)
         console_handler = logging.StreamHandler()
@@ -21,27 +28,24 @@ class WebScraper:
         console_handler.setFormatter(formatter)
 
         chrome = ChromeDriverManager(driver_version="125.0.6422.141")
-        self.service = Service(chrome.install())
+        cls.service = Service(chrome.install())
 
         #Server doesn't have a display so we don't need to see an open instance of chrome unless we need it for testing purposes
-        self.options = Options()
-        self.options.add_argument('--no-sandbox')
-        self.options.add_argument('--headless')
-        self.options.add_argument('--disable-dev-shm-usage')
-        self.options.add_argument('--disable-gpu')
-        self.options.add_argument('--remote-debugging-port=9222')
+        cls.options = Options()
+        cls.options.add_argument('--no-sandbox')
+        cls.options.add_argument('--headless')
+        cls.options.add_argument('--disable-dev-shm-usage')
+        cls.options.add_argument('--disable-gpu')
+        cls.options.add_argument('--remote-debugging-port=9222')
 
         #Class attributes
-        self.jobScraped = False
-        self.assistScraped = False
+        cls.jobDriver = Chrome(options=cls.options)
+        cls.assistDriver = Chrome(options=cls.options)
 
-        logging.info(f"Chrome binary located at: {self.service.path}")
+        logging.info(f"Chrome binary located at: {cls.service.path}")
 
-    def scrapeJobs(self) -> None:
-        if os.getenv('REPLIT_DEPLOYMENT'):
-            jobDriver = Chrome(options=self.options)
-        else:
-            jobDriver = Chrome(options=self.options)
+    @classmethod
+    def scrapeJobs(cls) -> None:
         root = "https://www.governmentjobs.com"
         pgNum = 1
         jobs = []
@@ -49,10 +53,10 @@ class WebScraper:
         #loop through every page that has job information
         while True:
             url = root + f"/careers/lacity?page={pgNum}"
-            jobDriver.get(url)
+            cls.jobDriver.get(url)
 
             #Ensures html isn't parsed until the tags we need are rendered
-            WebDriverWait(jobDriver, 10).until(
+            WebDriverWait(cls.jobDriver, 10).until(
                 EC.any_of(
                     EC.presence_of_all_elements_located(
                         (By.CLASS_NAME, 'item-details-link')),
@@ -60,10 +64,10 @@ class WebScraper:
                         (By.CLASS_NAME, 'not-found-text'))))
 
             #break out of the loop if the page has no jobs left
-            if self.containsChildByClass(jobDriver, 'not-found-text'): break
+            if cls.containsChildByClass(cls.jobDriver, 'not-found-text'): break
 
             #loop through all the job data and add their info to a json file
-            for job in jobDriver.find_elements(By.CLASS_NAME, 'list-item'):
+            for job in cls.jobDriver.find_elements(By.CLASS_NAME, 'list-item'):
                 link = job.find_element(By.TAG_NAME, 'a').get_attribute('href')
                 jName = job.find_element(By.TAG_NAME, 'a').text
                 specifics = job.find_element(By.TAG_NAME, 'ul').text
@@ -74,42 +78,51 @@ class WebScraper:
                 })
 
             pgNum += 1
-        jobDriver.quit()
-        self.jobScraped = True
+        cls.jobDriver.quit()
         with open('jobs.json', 'w') as file:
             json.dump(jobs, file, indent=4)
 
-    def scrapeAssist(self) -> None:
-        if os.getenv('REPLIT_DEPLOYMENT'):
-            assistDriver = Chrome(options=self.options)
-        else:
-            assistDriver = Chrome(options=self.options)
+    '''
+    @classmethod
+    def hasCurrentYearAggreement(cls) -> bool:
         url = "https://assist.org"
-        assistDriver.get(url)
-        transferData = {}
+        cls.assistDriver.get(url)
 
+        try:
+            cls.assistDriver.find_element(By.CLASS_NAME, 'agreement-year')
+        except NoSuchElementException:
+            return True
+        return False
+    '''
+    
+    @classmethod
+    def scrapeAssist(cls) -> None:
+        url = "https://assist.org"
+        cls.assistDriver.get(url)
+        transferData = {}
+        
         with open('schools.txt', 'r') as schools:
             for school in schools:
                 logging.info(f"Scraping {school}")
                 #wait for the search bar to load before entering 'CSUDH' into the search bar
                 logging.info(f"Waiting for selection box...")
-                WebDriverWait(assistDriver, 10).until(
+                WebDriverWait(cls.assistDriver, 10).until(
                     EC.presence_of_element_located((By.ID, "governing-institution-select"))).send_keys('CSUDH')
 
                 #wait for the CSUDH option to load from the dropdown menu before clicking on it
                 logging.info(f"Waiting for csudh element...")
-                WebDriverWait(assistDriver, 10).until(
+                WebDriverWait(cls.assistDriver, 10).until(
                     EC.presence_of_element_located((By.ID, 'option-202'))).click()
 
                 #wait for the search bar to load before entering a CC institution
                 logging.info(f"Waiting for institution agreement box...")
                 try:
-                    ccSearchBar = WebDriverWait(assistDriver, 20).until(
+                    ccSearchBar = WebDriverWait(cls.assistDriver, 20).until(
                         EC.element_to_be_clickable((By.NAME, 'institution-agreement')))
                     logging.info("The element is now clickable.")
 
                 except TimeoutException:
-                    if assistDriver.find_elements(By.NAME,'institution-agreement'):
+                    if cls.assistDriver.find_elements(By.NAME,'institution-agreement'):
                         logging.error("The element was found but not clickable")
                     else:
                         logging.error("The element was not found within the provided timeout")
@@ -117,7 +130,7 @@ class WebScraper:
 
                 #type the school we want tranfer class data from and then click on the 1st option from the drop down menu
                 ccSearchBar.send_keys(school)
-                schoolList = WebDriverWait(assistDriver, 10).until(
+                schoolList = WebDriverWait(cls.assistDriver, 10).until(
                     EC.presence_of_element_located((By.ID, 'cdk-overlay-1')))
                 
                 school = schoolList.find_element(By.TAG_NAME, 'amc-option')
@@ -126,37 +139,38 @@ class WebScraper:
                 school.click()
 
                 #wait for the button to view tranfer data to be visible and clickable
-                viewTranferCourseBtn = WebDriverWait(assistDriver, 10).until(
+                viewTranferCourseBtn = WebDriverWait(cls.assistDriver, 10).until(
                     EC.presence_of_element_located((By.CLASS_NAME, 'btn-primary')))
                 
-                assistDriver.execute_script("arguments[0].scrollIntoView(true);", viewTranferCourseBtn)
+                cls.assistDriver.execute_script("arguments[0].scrollIntoView(true);", viewTranferCourseBtn)
                 time.sleep(2)
 
-                WebDriverWait(assistDriver, 10).until(EC.element_to_be_clickable(viewTranferCourseBtn))
+                WebDriverWait(cls.assistDriver, 10).until(EC.element_to_be_clickable(viewTranferCourseBtn))
                 viewTranferCourseBtn.click()
 
-                self.jsonifyTransferData(assistDriver, transferData[schoolName])
+                cls.jsonifyTransferData(cls.assistDriver, transferData[schoolName])
 
         with open('transferdata.json', 'w') as json_file:
             json.dump(transferData, json_file, indent=4)
 
-    def jsonifyTransferData(self, assistDriver, school) -> None:
+    @classmethod
+    def jsonifyTransferData(cls, school) -> None:
         #giving the website 5 seconds to load before attempting to read from it
         time.sleep(3)
 
-        header = WebDriverWait(assistDriver, 10).until(
+        header = WebDriverWait(cls.assistDriver, 10).until(
             EC.presence_of_element_located((By.ID, 'view-agreement-by')))
 
         with open('majors.txt', 'r') as majors:
             for major in majors:
                 try:
                     #Wait for the search bar to load in before attempting to type in it
-                    search = WebDriverWait(assistDriver, 10).until(
+                    search = WebDriverWait(cls.assistDriver, 10).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "ng-valid")))
                     search.send_keys(major)
 
                     #wait for department options to load before trying to click on it
-                    department = WebDriverWait(assistDriver, 10).until(
+                    department = WebDriverWait(cls.assistDriver, 10).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "viewByRowColText")))
                     school[department.text] = []
                     department.click()
@@ -167,7 +181,7 @@ class WebScraper:
                     continue
 
                 #wait for the sections tag to load before trying to read from it
-                section = WebDriverWait(assistDriver, 15).until(
+                section = WebDriverWait(cls.assistDriver, 15).until(
                     EC.presence_of_element_located(
                         (By.CLASS_NAME, "template")))
 
@@ -191,17 +205,17 @@ class WebScraper:
                             ccCourse = pair.find_element(
                                 By.CLASS_NAME, 'rowSending')
 
-                            if self.containsChildByClass(
+                            if cls.containsChildByClass(
                                     DHCourse, 'bracketContent'):
                                 DHbracketContent = DHCourse.find_element(
                                     By.CLASS_NAME, 'bracketContent')
                                 CCbracketContent = ccCourse.find_element(
                                     By.CLASS_NAME, 'bracketContent')
-                                self.handleMultiplePaths(
+                                cls.handleMultiplePaths(
                                     DHbracketContent, CCbracketContent,
                                     school[department.text])
                             else:
-                                self.extractTransferData(
+                                cls.extractTransferData(
                                     DHCourse, ccCourse,
                                     school[department.text])
 
@@ -210,12 +224,13 @@ class WebScraper:
 
                 search.clear()
 
-        assistLogo = WebDriverWait(assistDriver, 10).until(
+        assistLogo = WebDriverWait(cls.assistDriver, 10).until(
             EC.presence_of_element_located((By.TAG_NAME, 'a')))
-        assistDriver.execute_script("arguments[0].click();", assistLogo)
+        cls.assistDriver.execute_script("arguments[0].click();", assistLogo)
         time.sleep(1)
 
-    def handleMultiplePaths(self, DHbracket, CCbracket, major) -> None:
+    @staticmethod
+    def handleMultiplePaths(DHbracket, CCbracket, major) -> None:
         DHcourses = DHbracket.find_elements(By.CLASS_NAME, 'courseLine')
         CCcourse = CCbracket.find_elements(By.CLASS_NAME, 'courseLine')
         DHStringBuilder = []
@@ -241,7 +256,8 @@ class WebScraper:
             }
         })
 
-    def extractTransferData(self, DHCourse, ccCourse, transferData) -> None:
+    @staticmethod
+    def extractTransferData(DHCourse, ccCourse, transferData) -> None:
         DHCourseNum = DHCourse.find_element(By.CLASS_NAME, 'prefixCourseNumber').text
         DHCourseName = DHCourse.find_element(By.CLASS_NAME, 'courseTitle').text
         DHCourseUnits = DHCourse.find_element(By.CLASS_NAME, 'courseUnits').text
@@ -277,16 +293,10 @@ class WebScraper:
                 }
             })
 
-    def hasScrapedJobs(self) -> bool:
-        return self.jobScraped
-
-    def hasScrapedAssist(self) -> bool:
-        return self.assistScraped
-
-    def containsChildByClass(self, parent, child) -> bool:
+    @staticmethod
+    def containsChildByClass(parent, child) -> bool:
         try:
             parent.find_element(By.CLASS_NAME, child)
         except NoSuchElementException:
             return False
-
         return True
