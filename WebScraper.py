@@ -6,14 +6,12 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver import Chrome
+import logging
 import json
 import time
 import os
-import logging
-
 
 class WebScraper:
-
     def __init__(self):
         # Create an instance of ChromeDriverManager(CDM) to install CDM if it is not detected
         logging.basicConfig(level=logging.INFO)
@@ -32,7 +30,6 @@ class WebScraper:
         self.options.add_argument('--disable-dev-shm-usage')
         self.options.add_argument('--disable-gpu')
         self.options.add_argument('--remote-debugging-port=9222')
-        #self.options.binary_location = f"{self.service.path}"
 
         #Class attributes
         self.jobScraped = False

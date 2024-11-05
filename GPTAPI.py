@@ -1,4 +1,8 @@
 from flask import Flask, json, jsonify, request
+from datetime import datetime
+import threading
+import schedule
+import time
 import sys
 import os
 sys.path.append(os.path.dirname(__file__))
@@ -6,7 +10,21 @@ from WebScraper import WebScraper
 
 app = Flask(__name__)
 scraper = WebScraper()
-assist = WebScraper()
+
+def scrapeJobData():
+    print("Scraping job data...")
+    scraper.scrapeJobs()
+
+def scrapeCourseTransfers():
+    print("Scraping course transfer data...")
+    scraper.scrapeAssist()
+
+def runSchedule():
+    print("Starting schedule...")
+    # This function runs the schedule in a loop
+    while True:
+        schedule.run_pending()
+        time.sleep(1)  # Prevent excessive CPU usage
 
 @app.route('/')
 def root():
@@ -35,7 +53,7 @@ def getAssist():
 @app.route('/generateCourseTransfers', methods=['GET'])
 def generateAssist():
     #if not scraper.hasScrapedAssist():
-    assist.scrapeAssist()
+    scraper.scrapeAssist()
 
     with open('transferdata.json', 'r') as file:
         courses = json.load(file)
@@ -43,4 +61,11 @@ def generateAssist():
 
 application = app
 if __name__ == '__main__':
+    # Schedule tasks
+    schedule.every().day.at("00:00").do(scrapeJobData) #scrape job data every day at midnight
+
+    # Start the scheduling in a new thread
+    schedule_thread = threading.Thread(target=runSchedule)
+    schedule_thread.daemon = True  # Ensures thread will close when the main program exits
+    schedule_thread.start()
     app.run(debug=True, use_reloader=False)
