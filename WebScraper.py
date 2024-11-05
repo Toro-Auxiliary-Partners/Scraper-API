@@ -16,7 +16,9 @@ class WebScraper:
     service = None
     options = None
     jobDriver = None
+    jobPort = '9222'
     assistDriver = None
+    assistPort = '9223'
 
     @classmethod
     def initialize(cls):
@@ -27,7 +29,7 @@ class WebScraper:
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         console_handler.setFormatter(formatter)
 
-        chrome = ChromeDriverManager(driver_version="125.0.6422.141")
+        chrome = ChromeDriverManager(driver_version="130.0.6723.117")
         cls.service = Service(chrome.install())
 
         #Server doesn't have a display so we don't need to see an open instance of chrome unless we need it for testing purposes
@@ -36,12 +38,24 @@ class WebScraper:
         cls.options.add_argument('--headless')
         cls.options.add_argument('--disable-dev-shm-usage')
         cls.options.add_argument('--disable-gpu')
-        cls.options.add_argument('--remote-debugging-port=9222')
 
         #Class attributes
-        cls.jobDriver = Chrome(options=cls.options)
-        cls.assistDriver = Chrome(options=cls.options)
+        try:
+            jobOptions = cls.options
+            jobOptions.add_argument(f'--remote-debugging-port={cls.jobPort}') 
+            cls.jobDriver = Chrome(options=jobOptions)
+            logging.info("Job driver initialized successfully")
+        except Exception as e:
+            logging.error(f"Failed to initialize job driver: {e}")
 
+        try:
+            assistOptions = cls.options
+            assistOptions.add_argument(f'--remote-debugging-port={cls.assistPort}')
+            cls.assistDriver = Chrome(options=assistOptions)
+            logging.info("Assist driver initialized successfully")
+        except Exception as e:
+            logging.error(f"Failed to initialize assist driver: {e}")
+        
         logging.info(f"Chrome binary located at: {cls.service.path}")
 
     @classmethod
@@ -148,7 +162,7 @@ class WebScraper:
                 WebDriverWait(cls.assistDriver, 10).until(EC.element_to_be_clickable(viewTranferCourseBtn))
                 viewTranferCourseBtn.click()
 
-                cls.jsonifyTransferData(cls.assistDriver, transferData[schoolName])
+                cls.jsonifyTransferData(transferData[schoolName])
 
         with open('transferdata.json', 'w') as json_file:
             json.dump(transferData, json_file, indent=4)
