@@ -8,3 +8,6 @@ __pycache__/
 
 #ignore test file
 WebScraperTest.py
+
+#ignore the virtual environment
+venv/
