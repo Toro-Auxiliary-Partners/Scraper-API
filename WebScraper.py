@@ -22,13 +22,13 @@ class WebScraper:
 
     @classmethod
     def initialize(cls):
-        # Create an instance of ChromeDriverManager(CDM) to install CDM if it is not detected
         logging.basicConfig(level=logging.INFO)
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         console_handler.setFormatter(formatter)
 
+        # Create an instance of ChromeDriverManager(CDM) to install CDM if it is not detected
         chrome = ChromeDriverManager(driver_version="130.0.6723.117")
         cls.service = Service(chrome.install())
 
@@ -38,8 +38,11 @@ class WebScraper:
         cls.options.add_argument('--headless')
         cls.options.add_argument('--disable-dev-shm-usage')
         cls.options.add_argument('--disable-gpu')
+        
+        logging.info(f"Chrome binary located at: {cls.service.path}")
 
-        #Class attributes
+    @classmethod
+    def scrapeJobs(cls) -> None:
         try:
             jobOptions = cls.options
             jobOptions.add_argument(f'--remote-debugging-port={cls.jobPort}') 
@@ -47,25 +50,14 @@ class WebScraper:
             logging.info("Job driver initialized successfully")
         except Exception as e:
             logging.error(f"Failed to initialize job driver: {e}")
-
-        try:
-            assistOptions = cls.options
-            assistOptions.add_argument(f'--remote-debugging-port={cls.assistPort}')
-            cls.assistDriver = Chrome(options=assistOptions)
-            logging.info("Assist driver initialized successfully")
-        except Exception as e:
-            logging.error(f"Failed to initialize assist driver: {e}")
-        
-        logging.info(f"Chrome binary located at: {cls.service.path}")
-
-    @classmethod
-    def scrapeJobs(cls) -> None:
+            
         root = "https://www.governmentjobs.com"
         pgNum = 1
         jobs = []
 
         #loop through every page that has job information
         while True:
+            logging.info(f"Scraping page {pgNum}...")
             url = root + f"/careers/lacity?page={pgNum}"
             cls.jobDriver.get(url)
 
@@ -91,10 +83,17 @@ class WebScraper:
                     'specifics': specifics
                 })
 
+            logging.info(f"Page {pgNum} scraped successfully")
             pgNum += 1
+
+        logging.info("Scraping complete, closing jobDriver...")    
         cls.jobDriver.quit()
+
+        logging.info("Writing to jobs.json...")
         with open('jobs.json', 'w') as file:
             json.dump(jobs, file, indent=4)
+
+        logging.info("jobs.json written successfully")
 
     '''
     @classmethod
@@ -111,6 +110,14 @@ class WebScraper:
     
     @classmethod
     def scrapeAssist(cls) -> None:
+        try:
+            assistOptions = cls.options
+            assistOptions.add_argument(f'--remote-debugging-port={cls.assistPort}')
+            cls.assistDriver = Chrome(options=assistOptions)
+            logging.info("Assist driver initialized successfully")
+        except Exception as e:
+            logging.error(f"Failed to initialize assist driver: {e}")
+
         url = "https://assist.org"
         cls.assistDriver.get(url)
         transferData = {}
@@ -164,6 +171,7 @@ class WebScraper:
 
                 cls.jsonifyTransferData(transferData[schoolName])
 
+        cls.assistDriver.quit()
         with open('transferdata.json', 'w') as json_file:
             json.dump(transferData, json_file, indent=4)
 

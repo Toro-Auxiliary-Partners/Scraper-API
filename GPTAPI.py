@@ -30,14 +30,6 @@ def runSchedule():
 def root():
     return 'API TEST'
 
-@app.route('/generateJobInfo', methods = ['GET'])
-def generateJobInfo():
-    scraper.scrapeJobs()
-
-    with open('jobs.json', 'r') as file:
-        jobs = json.load(file)
-    return jsonify(jobs)
-
 @app.route('/getJobInfo', methods = ['GET'])
 def getJobInfo():
     with open('jobs.json', 'r') as file:
@@ -50,6 +42,15 @@ def getAssist():
         courses = json.load(file)
     return courses
     
+#TODO: make a new class to handle the generation of new data
+@app.route('/generateJobInfo', methods = ['GET'])
+def generateJobInfo():
+    scraper.scrapeJobs()
+
+    with open('jobs.json', 'r') as file:
+        jobs = json.load(file)
+    return jsonify(jobs)
+
 @app.route('/generateCourseTransfers', methods=['GET'])
 def generateAssist():
     #if not scraper.hasScrapedAssist():
@@ -66,7 +67,7 @@ if __name__ == '__main__':
 
     # Schedule tasks
     schedule.every().day.at("00:00").do(scrapeJobData) #scrape job data every day at midnight
-    schedule.every(10).seconds.do(scrapeCourseTransfers)
+    schedule.every(365).day.do(scrapeCourseTransfers)
 
     # Start the scheduling in a new thread
     schedule_thread = threading.Thread(target=runSchedule)
