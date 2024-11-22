@@ -6,6 +6,9 @@ __pycache__/
 #ignore all json files
 *.json
 
+#ignore all log files
+*.log
+
 #ignore test file
 WebScraperTest.py
 
