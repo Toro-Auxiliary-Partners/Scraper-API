@@ -9,8 +9,5 @@ __pycache__/
 #ignore all log files
 *.log
 
-#ignore test file
-WebScraperTest.py
-
 #ignore the virtual environment
 venv/
