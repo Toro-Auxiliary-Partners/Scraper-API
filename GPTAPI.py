@@ -2,6 +2,7 @@ from flask import Flask, json, jsonify, request
 from datetime import datetime
 import threading
 import schedule
+import logging
 import time
 import sys
 import os
@@ -66,8 +67,8 @@ if __name__ == '__main__':
     scraper.initialize()
 
     # Schedule tasks
-    schedule.every().day.at("00:00").do(scrapeJobData) #scrape job data every day at midnight
-    schedule.every(365).day.do(scrapeCourseTransfers)
+    schedule.every(10).seconds.do(scrapeJobData) #scrape job data every day at midnight
+    schedule.every(30).seconds.do(scrapeCourseTransfers)
 
     # Start the scheduling in a new thread
     schedule_thread = threading.Thread(target=runSchedule)
