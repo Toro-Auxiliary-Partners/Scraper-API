@@ -11,3 +11,11 @@ __pycache__/
 
 #ignore the virtual environment
 venv/
+
+#ignore the .env file
+.env    
+
+Dockerfile
+
+GPTAPITest.py
+WebScraperTest.py

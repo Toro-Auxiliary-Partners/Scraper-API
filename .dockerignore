@@ -1,0 +1,15 @@
+#ignore environment variables
+.env
+
+#ignore .gitignore file
+.gitignore
+
+*.log
+
+*.text
+
+*.json
+
+GPTAPITest.py
+WebScraperTest.py
+README.md

@@ -6,7 +6,9 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver import Chrome
+from dotenv import load_dotenv
 import logging
+import pyodbc
 import json
 import time
 import os
@@ -20,9 +22,13 @@ class WebScraper:
     assistPort = '9223'
     jobLogger = logging.getLogger('jobLogger')
     assistLogger = logging.getLogger('assistLogger')
+    connString = None
 
     @classmethod
     def initialize(cls):
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()])
+        logging.info("Initializing WebScraper...")
+
         #logging for job scraping
         cls.jobLogger.setLevel(logging.INFO)
         jobHandler = logging.FileHandler('jobs.log')
@@ -40,7 +46,7 @@ class WebScraper:
         cls.assistLogger.addHandler(assistHandler)
 
         # Create an instance of ChromeDriverManager(CDM) to install CDM if it is not detected
-        chrome = ChromeDriverManager(driver_version="130.0.6723.117")
+        chrome = ChromeDriverManager(driver_version="137.0.7151.104")
         service = Service(chrome.install())
 
         #Server doesn't have a display so we don't need to see an open instance of chrome unless we need it for testing purposes
@@ -50,6 +56,19 @@ class WebScraper:
         cls.options.add_argument('--disable-gpu')
         
         logging.info(f"Chrome binary located at: {service.path}")
+        logging.info("WebScraper initialized successfully")
+
+        logging.info("Loading environment variables...")
+        load_dotenv()
+
+        logging.info("Connecting to AZURE SQL Server...")
+        cls.connString = (
+            'DRIVER={ODBC Driver 17 for SQL Server};'
+            f'SERVER={os.environ['SERVER']};'
+            f'DATABASE={os.environ['DATABASE']};'
+            f'UID={os.environ['AZ_USERNAME']};'
+            f'PWD={os.environ['PASSWORD']};'
+        )
 
     @classmethod
     def scrapeJobs(cls) -> None:
@@ -61,12 +80,25 @@ class WebScraper:
             cls.jobLogger.info("Job driver initialized successfully")
         except Exception as e:
             cls.jobLogger.error(f"Failed to initialize job driver: {e}")
+
+        cls.jobLogger.info("Connecting to SQL Server...")
+        for attempt in range(5):
+            try:
+                cnxn = pyodbc.connect(cls.connString)
+                cursor = cnxn.cursor()
+                break
+            except Exception as e:
+                cls.jobLogger.error(f"Connection attempt {attempt + 1} failed: {e}")
+                if attempt == 4:
+                    cls.jobLogger.critical("Failed to connect to SQL Server after 5 attempts, exiting...")
+                    return
+                time.sleep(5)
             
         root = "https://www.governmentjobs.com"
         pgNum = 1
-        jobs = []
 
         #loop through every page that has job information
+        cls.jobDriver.delete_all_cookies()
         while True:
             cls.jobLogger.info(f"Scraping page {pgNum}...")
             url = root + f"/careers/lacity?page={pgNum}"
@@ -83,16 +115,26 @@ class WebScraper:
             #break out of the loop if the page has no jobs left
             if cls.containsChildByClass(cls.jobDriver, 'not-found-text'): break
 
-            #loop through all the job data and add their info to a json file
+            #loop through all the job data and add their info to database
             for job in cls.jobDriver.find_elements(By.CLASS_NAME, 'list-item'):
                 link = job.find_element(By.TAG_NAME, 'a').get_attribute('href')
                 jName = job.find_element(By.TAG_NAME, 'a').text
-                specifics = job.find_element(By.TAG_NAME, 'ul').text
-                jobs.append({
-                    'Job Title': jName,
-                    'Link': link,
-                    'specifics': specifics
-                })
+                _ , salary, category, department = WebScraper.sanitize(cls, job.find_element(By.TAG_NAME, 'ul').text.split('\n'))
+
+                #check if the job already exists in the database
+                cursor.execute("Select Count(*) From Jobs Where Link = ?;", link)
+                if cursor.fetchone()[0] == 0:
+                    cls.jobLogger.info("Inserting job to database")
+                    cursor.execute(
+                        "Insert Into Jobs (JobTitle, Link, Salary, Category, Department) Values (?, ?, ?, ?, ?);", 
+                        jName, link, salary, category.split(':')[1].strip(), department.split(':')[1].strip()
+                    )
+                else:
+                    cursor.execute(
+                        "Update Jobs Set Checked = 1 Where Link = ?;",
+                        link 
+                    )
+                    cls.jobLogger.info("Job already exists in database, skipping...")
 
             cls.jobLogger.info(f"Page {pgNum} scraped successfully")
             pgNum += 1
@@ -100,11 +142,20 @@ class WebScraper:
         cls.jobLogger.info("Scraping complete, closing jobDriver...")    
         cls.jobDriver.quit()
 
-        cls.jobLogger.info("Writing to jobs.json...")
-        with open('jobs.json', 'w') as file:
-            json.dump(jobs, file, indent=4)
+        #Remove outdated jobs from the database
+        cls.jobLogger.info("Removing outdated jobs from database...")
+        cursor.execute("Delete From Jobs Where Checked = 0;")
 
-        cls.jobLogger.info("Written to jobs.json successfully")
+        #reset all the checked jobs to 0
+        cursor.execute("Update Jobs Set Checked = 0;")
+
+        cls.jobLogger.info("Closing connection to SQL Server...")
+        cnxn.commit()
+        cursor.close()
+        cnxn.close()
+        cls.jobLogger.info("Connection closed successfully")
+
+    
 
     '''
     @classmethod
@@ -323,3 +374,20 @@ class WebScraper:
         except NoSuchElementException:
             return False
         return True
+    
+    @staticmethod
+    def sanitize(cls, data) -> str:
+        chars = ['$', '(', ')', ' /', '.00', ',', '.']
+
+        if isinstance(data, str):
+            for char in chars:
+                if char == '(' or char == ')':
+                    data = data.replace(char, '_')
+                if char == ' /':
+                    data = data.replace(char, '-')
+
+                data = data.replace(char, '')
+        elif isinstance(data, list):
+            return [WebScraper.sanitize(cls, item) for item in data]
+
+        return data
