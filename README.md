@@ -7,4 +7,4 @@
 
 ### Project Structure
 - __WebScraper.py:__ Contains the main logic for initializing and managing web scraping sessions.
-- __GPTAPI.py:__ Contains the endpoints needed to acquire scraped data
+- __GPTAPI.py:__ This script initializes a web scraper and uses threaded functions to periodically scrape job listings and course transfer data while logging the process.
